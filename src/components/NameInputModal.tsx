@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../constants/theme';
+import { colors } from '../constants/theme';
 import { MAX_NAME_LENGTH, validateDrawingName } from '../logic/validation';
 import { AppModal } from './AppModal';
+import { AppText } from './AppText';
+import { IconName } from './Icon';
+import { TextField } from './TextField';
 
 interface Props {
   visible: boolean;
   title: string;
+  message?: string;
+  icon?: IconName;
   initialName: string;
   submitLabel: string;
   /** Takroriy nom tekshiruvi uchun mavjud nomlar. */
@@ -21,6 +26,8 @@ interface Props {
 export function NameInputModal({
   visible,
   title,
+  message,
+  icon = 'content-save-outline',
   initialName,
   submitLabel,
   existingNames,
@@ -55,13 +62,20 @@ export function NameInputModal({
     <AppModal
       visible={visible}
       title={title}
+      message={message}
+      icon={icon}
       onRequestClose={onCancel}
       actions={[
-        { label: 'Bekor qilish', onPress: onCancel, variant: 'plain' },
-        { label: busy ? 'Saqlanmoqda…' : submitLabel, onPress: handleSubmit, variant: 'primary', testID: 'name-submit' },
+        { label: 'Bekor qilish', onPress: onCancel },
+        {
+          label: busy ? 'Saqlanmoqda…' : submitLabel,
+          onPress: handleSubmit,
+          variant: 'accent',
+          testID: 'name-submit',
+        },
       ]}
     >
-      <TextInput
+      <TextField
         value={name}
         onChangeText={(text) => {
           setName(text);
@@ -69,42 +83,24 @@ export function NameInputModal({
             setError(null);
           }
         }}
+        hasError={!!error}
         placeholder="Masalan: Bahor manzarasi"
-        placeholderTextColor={colors.textMuted}
         maxLength={MAX_NAME_LENGTH + 10}
         autoFocus
         selectTextOnFocus
         returnKeyType="done"
         onSubmitEditing={handleSubmit}
-        style={[styles.input, error && styles.inputError]}
         testID="name-input"
       />
-      <Text style={[styles.hint, error && styles.errorText]}>
+      <AppText size={12} weight="medium" color={error ? colors.danger : colors.textFaint} style={styles.hint}>
         {error ?? `${name.trim().length}/${MAX_NAME_LENGTH} belgi`}
-      </Text>
+      </AppText>
     </AppModal>
   );
 }
 
 const styles = StyleSheet.create({
-  input: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    fontSize: 16,
-    color: colors.text,
-  },
-  inputError: {
-    borderColor: colors.danger,
-  },
   hint: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: -spacing.xs,
-  },
-  errorText: {
-    color: colors.danger,
+    marginTop: -4,
   },
 });

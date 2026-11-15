@@ -1,20 +1,15 @@
 import React from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, radius, spacing } from '../constants/theme';
+import { colors, radius, shadow, spacing } from '../constants/theme';
+import { AppText } from './AppText';
+import { GradientButton } from './GradientButton';
+import { Icon, IconName } from './Icon';
 
 export interface ModalAction {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'danger' | 'plain';
+  variant?: 'accent' | 'danger' | 'ghost';
   testID?: string;
 }
 
@@ -22,6 +17,8 @@ interface Props {
   visible: boolean;
   title: string;
   message?: string;
+  icon?: IconName;
+  tone?: 'accent' | 'danger';
   actions: ModalAction[];
   onRequestClose: () => void;
   children?: React.ReactNode;
@@ -31,40 +28,45 @@ interface Props {
  * Umumiy dialog oynasi. Alert.alert o'rniga ishlatiladi, chunki u
  * Android, iOS va webda bir xil ko'rinadi va ichiga TextInput qo'yish mumkin.
  */
-export function AppModal({ visible, title, message, actions, onRequestClose, children }: Props) {
+export function AppModal({
+  visible,
+  title,
+  message,
+  icon,
+  tone = 'accent',
+  actions,
+  onRequestClose,
+  children,
+}: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
-      <KeyboardAvoidingView
-        style={styles.backdrop}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onRequestClose} accessibilityLabel="Yopish" />
         <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
-          {message ? <Text style={styles.message}>{message}</Text> : null}
+          {icon && (
+            <View style={[styles.badge, tone === 'danger' && styles.badgeDanger]}>
+              <Icon name={icon} size={22} color={tone === 'danger' ? colors.danger : colors.accent} />
+            </View>
+          )}
+          <AppText weight="bold" size={19}>
+            {title}
+          </AppText>
+          {message ? (
+            <AppText size={14} color={colors.textMuted} style={styles.message}>
+              {message}
+            </AppText>
+          ) : null}
           {children}
           <View style={styles.actions}>
             {actions.map((action) => (
-              <Pressable
+              <GradientButton
                 key={action.label}
+                label={action.label}
                 onPress={action.onPress}
+                variant={action.variant ?? 'ghost'}
+                compact
                 testID={action.testID}
-                style={({ pressed }) => [
-                  styles.action,
-                  action.variant === 'primary' && styles.primary,
-                  action.variant === 'danger' && styles.danger,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.actionText,
-                    (action.variant === 'primary' || action.variant === 'danger') && styles.actionTextLight,
-                  ]}
-                >
-                  {action.label}
-                </Text>
-              </Pressable>
+              />
             ))}
           </View>
         </View>
@@ -76,55 +78,40 @@ export function AppModal({ visible, title, message, actions, onRequestClose, chi
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
   },
   card: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
     padding: spacing.xl,
     gap: spacing.md,
+    ...shadow.card,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
+  badge: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeDanger: {
+    backgroundColor: colors.dangerSoft,
   },
   message: {
-    fontSize: 15,
     lineHeight: 21,
-    color: colors.textMuted,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,
-  },
-  action: {
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.sm,
-  },
-  primary: {
-    backgroundColor: colors.primary,
-  },
-  danger: {
-    backgroundColor: colors.danger,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  actionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  actionTextLight: {
-    color: colors.surface,
   },
 });

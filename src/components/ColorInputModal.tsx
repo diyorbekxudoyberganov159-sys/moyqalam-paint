@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { colors, radius, spacing } from '../constants/theme';
+import { buildSpectrum, normalizeHex } from '../logic/color';
 import { isValidHexColor } from '../logic/validation';
 import { AppModal } from './AppModal';
+import { AppText } from './AppText';
+import { TextField } from './TextField';
 
 interface Props {
   visible: boolean;
@@ -12,10 +15,14 @@ interface Props {
   onSubmit: (color: string) => void;
 }
 
-/** Istalgan rangni HEX kod bilan kiritish (#FF8800). Noto'g'ri kod qabul qilinmaydi. */
+/**
+ * "Ranglarni tahrirlash" oynasi (Paint'dagi kabi): spektr to'ridan tanlash
+ * yoki HEX kodni qo'lda kiritish. Noto'g'ri kod qabul qilinmaydi.
+ */
 export function ColorInputModal({ visible, initialColor, onCancel, onSubmit }: Props) {
   const [value, setValue] = useState(initialColor);
   const [error, setError] = useState<string | null>(null);
+  const spectrum = useMemo(buildSpectrum, []);
 
   useEffect(() => {
     if (visible) {
@@ -24,7 +31,7 @@ export function ColorInputModal({ visible, initialColor, onCancel, onSubmit }: P
     }
   }, [visible, initialColor]);
 
-  const normalized = value.trim().startsWith('#') ? value.trim() : `#${value.trim()}`;
+  const normalized = normalizeHex(value);
   const isValid = isValidHexColor(normalized);
 
   const handleSubmit = () => {
@@ -32,79 +39,101 @@ export function ColorInputModal({ visible, initialColor, onCancel, onSubmit }: P
       setError("Noto'g'ri rang kodi. Namuna: #FF8800 yoki #F80");
       return;
     }
-    onSubmit(normalized.toUpperCase());
+    onSubmit(normalized);
   };
 
   return (
     <AppModal
       visible={visible}
-      title="Boshqa rang"
-      message="Rangning HEX kodini kiriting."
+      title="Ranglarni tahrirlash"
+      icon="palette-outline"
       onRequestClose={onCancel}
       actions={[
         { label: 'Bekor qilish', onPress: onCancel },
-        { label: 'Tanlash', onPress: handleSubmit, variant: 'primary' },
+        { label: 'Tanlash', onPress: handleSubmit, variant: 'accent', testID: 'color-submit' },
       ]}
     >
+      <View style={styles.spectrum}>
+        {spectrum.map((row, r) => (
+          <View key={r} style={styles.spectrumRow}>
+            {row.map((hex) => (
+              <Pressable
+                key={hex}
+                onPress={() => {
+                  setValue(hex);
+                  setError(null);
+                }}
+                accessibilityLabel={`Spektr ${hex}`}
+                style={[styles.cell, { backgroundColor: hex }, normalized === hex && styles.cellSelected]}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+
       <View style={styles.row}>
-        <View style={[styles.preview, { backgroundColor: isValid ? normalized : colors.background }]}>
-          {!isValid && <Text style={styles.question}>?</Text>}
+        <View style={[styles.preview, { backgroundColor: isValid ? normalized : colors.bg }]}>
+          {!isValid && <AppText color={colors.textFaint}>?</AppText>}
         </View>
-        <TextInput
+        <TextField
           value={value}
           onChangeText={(text) => {
             setValue(text);
             setError(null);
           }}
+          hasError={!!error}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={7}
           placeholder="#FF8800"
-          placeholderTextColor={colors.textMuted}
           onSubmitEditing={handleSubmit}
-          style={[styles.input, error && styles.inputError]}
+          style={styles.input}
+          testID="hex-input"
         />
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && (
+        <AppText size={12} weight="medium" color={colors.danger}>
+          {error}
+        </AppText>
+      )}
     </AppModal>
   );
 }
 
 const styles = StyleSheet.create({
+  spectrum: {
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  spectrumRow: {
+    flexDirection: 'row',
+  },
+  cell: {
+    flex: 1,
+    height: 26,
+  },
+  cellSelected: {
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
   preview: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.round,
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  question: {
-    color: colors.textMuted,
-    fontSize: 18,
-  },
   input: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    fontSize: 16,
-    fontFamily: 'monospace',
-    color: colors.text,
-  },
-  inputError: {
-    borderColor: colors.danger,
-  },
-  error: {
-    color: colors.danger,
-    fontSize: 13,
+    letterSpacing: 1,
   },
 });
