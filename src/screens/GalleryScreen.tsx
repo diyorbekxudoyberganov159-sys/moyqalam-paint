@@ -1,30 +1,33 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, radius, spacing } from '../constants/theme';
+import { AppText } from '../components/AppText';
+import { GradientButton } from '../components/GradientButton';
+import { Icon } from '../components/Icon';
+import { TextField } from '../components/TextField';
+import { colors, radius, shadow, spacing } from '../constants/theme';
 import { getAllDrawings } from '../data/drawingRepository';
 import { formatDateTime } from '../logic/format';
 import { SavedDrawing } from '../models/drawing';
 import { ScreenProps } from '../navigation/types';
 
-const CARD_MIN_WIDTH = 160;
+const CARD_MIN_WIDTH = 170;
 
-/** Saqlangan rasmlar ro'yxati (to'r ko'rinishida). */
+/** Saqlangan rasmlar: qidiruv + to'r ko'rinishidagi kartochkalar. */
 export function GalleryScreen({ navigation }: ScreenProps<'Gallery'>) {
   const [drawings, setDrawings] = useState<SavedDrawing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -47,10 +50,15 @@ export function GalleryScreen({ navigation }: ScreenProps<'Gallery'>) {
     }, []),
   );
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? drawings.filter((d) => d.name.toLowerCase().includes(q)) : drawings;
+  }, [drawings, query]);
+
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -58,12 +66,21 @@ export function GalleryScreen({ navigation }: ScreenProps<'Gallery'>) {
   if (drawings.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons name="color-palette-outline" size={64} color={colors.disabled} />
-        <Text style={styles.emptyTitle}>Hali saqlangan rasm yo'q</Text>
-        <Text style={styles.emptyText}>Rasm chizing va “Saqlash” tugmasini bosing.</Text>
-        <Pressable style={styles.emptyButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.emptyButtonText}>Chizishni boshlash</Text>
-        </Pressable>
+        <View style={styles.emptyIcon}>
+          <Icon name="image-filter-hdr" size={40} color={colors.accent} />
+        </View>
+        <AppText weight="bold" size={20}>
+          Hali saqlangan rasm yo'q
+        </AppText>
+        <AppText size={14} color={colors.textMuted} style={styles.centerText}>
+          Rasm chizing va yuqoridagi “Saqlash” tugmasini bosing — u shu yerda paydo bo'ladi.
+        </AppText>
+        <GradientButton
+          label="Chizishni boshlash"
+          icon="brush"
+          onPress={() => navigation.goBack()}
+          style={styles.emptyButton}
+        />
       </View>
     );
   }
@@ -71,25 +88,75 @@ export function GalleryScreen({ navigation }: ScreenProps<'Gallery'>) {
   return (
     <FlatList
       key={numColumns}
-      data={drawings}
+      data={filtered}
       keyExtractor={(item) => item.id}
       numColumns={numColumns}
-      contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + spacing.lg }]}
-      ListHeaderComponent={<Text style={styles.count}>Jami: {drawings.length} ta rasm</Text>}
+      style={styles.list}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + spacing.xl }]}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <AppText weight="extrabold" size={26} style={styles.headline}>
+              Mening rasmlarim
+            </AppText>
+            <View style={styles.countChip}>
+              <AppText weight="semibold" size={12} color={colors.accent}>
+                {drawings.length} ta
+              </AppText>
+            </View>
+          </View>
+          <View>
+            <View style={styles.searchIcon} pointerEvents="none">
+              <Icon name="magnify" size={20} color={colors.textFaint} />
+            </View>
+            <TextField
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Nomi bo'yicha qidirish"
+              style={styles.search}
+              returnKeyType="search"
+              testID="gallery-search"
+            />
+          </View>
+        </View>
+      }
+      ListEmptyComponent={
+        <View style={styles.noResults}>
+          <Icon name="file-search-outline" size={32} color={colors.textFaint} />
+          <AppText color={colors.textMuted}>“{query.trim()}” bo'yicha hech narsa topilmadi</AppText>
+        </View>
+      }
       renderItem={({ item }) => (
         <Pressable
-          style={({ pressed }) => [styles.card, { maxWidth: `${100 / numColumns}%` }, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.cell,
+            { maxWidth: `${100 / numColumns}%` },
+            pressed && styles.pressed,
+          ]}
           onPress={() => navigation.navigate('Viewer', { id: item.id })}
           accessibilityRole="button"
           accessibilityLabel={item.name}
         >
-          <View style={styles.cardInner}>
-            <Image source={{ uri: item.imageUri }} style={styles.thumb} resizeMode="contain" />
+          <View style={styles.card}>
+            <View style={styles.thumbBox}>
+              <Image source={{ uri: item.imageUri }} style={styles.thumb} resizeMode="contain" />
+            </View>
             <View style={styles.cardText}>
-              <Text style={styles.name} numberOfLines={1}>
+              <AppText weight="semibold" size={14} numberOfLines={1}>
                 {item.name}
-              </Text>
-              <Text style={styles.date}>{formatDateTime(item.createdAt)}</Text>
+              </AppText>
+              <View style={styles.metaRow}>
+                <AppText size={11} color={colors.textFaint}>
+                  {formatDateTime(item.createdAt)}
+                </AppText>
+                <View style={styles.badge}>
+                  <Icon name="layers-outline" size={11} color={colors.textMuted} />
+                  <AppText size={10} weight="semibold" color={colors.textMuted}>
+                    {item.strokeCount}
+                  </AppText>
+                </View>
+              </View>
             </View>
           </View>
         </Pressable>
@@ -103,73 +170,114 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
+    padding: spacing.xxl,
     gap: spacing.sm,
+    backgroundColor: colors.bg,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: spacing.sm,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: colors.textMuted,
+  centerText: {
     textAlign: 'center',
+    lineHeight: 21,
+    maxWidth: 320,
+  },
+  emptyIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.xl,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   emptyButton: {
-    marginTop: spacing.md,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.round,
-  },
-  emptyButtonText: {
-    color: colors.surface,
-    fontWeight: '600',
-    fontSize: 15,
+    marginTop: spacing.lg,
   },
   list: {
+    backgroundColor: colors.bg,
+  },
+  listContent: {
     padding: spacing.sm,
   },
-  count: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
+  header: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
-  card: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headline: {
+    letterSpacing: -0.8,
+  },
+  countChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.round,
+    backgroundColor: colors.accentSoft,
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  search: {
+    paddingLeft: 40,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  noResults: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xxl,
+  },
+  cell: {
     flex: 1,
     padding: spacing.xs + 2,
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
-  cardInner: {
+  card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    overflow: 'hidden',
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    padding: spacing.sm,
+    ...shadow.card,
+  },
+  thumbBox: {
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.canvas,
   },
   thumb: {
     width: '100%',
-    aspectRatio: 1,
-    backgroundColor: colors.canvas,
+    aspectRatio: 0.85,
   },
   cardText: {
-    padding: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    paddingHorizontal: 4,
+    paddingTop: spacing.sm,
+    paddingBottom: 2,
+    gap: 3,
   },
-  name: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  date: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.round,
+    backgroundColor: colors.surfaceRaised,
   },
 });

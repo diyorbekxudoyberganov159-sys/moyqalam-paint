@@ -7,7 +7,4 @@ export type RootStackParamList = {
   Viewer: { id: string };
 };
 
-export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
-  RootStackParamList,
-  T
->;
+export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, T>;
