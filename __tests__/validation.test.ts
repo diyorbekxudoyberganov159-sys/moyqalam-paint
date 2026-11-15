@@ -1,4 +1,9 @@
-import { clampWidth, isValidHexColor, suggestDrawingName, validateDrawingName } from '../src/logic/validation';
+import {
+  clampWidth,
+  isValidHexColor,
+  suggestDrawingName,
+  validateDrawingName,
+} from '../src/logic/validation';
 
 describe('validateDrawingName', () => {
   it('to`g`ri nom uchun null', () => {

@@ -10,7 +10,12 @@ describe('pointsToPath', () => {
   });
 
   it('ikki nuqta — to`g`ri chiziq', () => {
-    expect(pointsToPath([{ x: 0, y: 0 }, { x: 10, y: 20 }])).toBe('M0,0 L10,20');
+    expect(
+      pointsToPath([
+        { x: 0, y: 0 },
+        { x: 10, y: 20 },
+      ]),
+    ).toBe('M0,0 L10,20');
   });
 
   it('ko`p nuqtada Bezier (Q) egri chiziqlar ishlatiladi', () => {
