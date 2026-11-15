@@ -1,85 +1,50 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../constants/theme';
-
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-/** Ikonka: Ionicons nomi yoki { mci: '...' } — MaterialCommunityIcons to'plamidan (masalan, o'chirg'ich). */
-export type ButtonIcon = IconName | { mci: MciName };
+import { colors, radius } from '../constants/theme';
+import { Icon, IconName } from './Icon';
 
 interface Props {
-  icon: ButtonIcon;
+  icon: IconName;
   label: string;
   onPress: () => void;
-  active?: boolean;
   disabled?: boolean;
-  danger?: boolean;
+  size?: number;
   testID?: string;
-  /** Landshaft paneldagi 3 ustunli to'r uchun. */
-  grid?: boolean;
 }
 
-/** Asboblar panelidagi belgili tugma (ikonka + qisqa yozuv). */
-export function IconButton({ icon, label, onPress, active, disabled, danger, testID, grid }: Props) {
-  const tint = disabled ? colors.disabled : active ? colors.surface : danger ? colors.danger : colors.text;
-
+/** Yumaloq ikonka-tugma (yuqori paneldagi Orqaga/Oldinga/Galereya). */
+export function IconButton({ icon, label, onPress, disabled, size = 40, testID }: Props) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled, selected: active }}
+      accessibilityState={{ disabled }}
       testID={testID}
+      hitSlop={6}
       style={({ pressed }) => [
         styles.button,
-        grid && styles.grid,
-        active && styles.active,
-        pressed && !disabled && !active && styles.pressed,
+        { width: size, height: size },
+        pressed && !disabled && styles.pressed,
       ]}
     >
-      <View style={styles.inner}>
-        {typeof icon === 'string' ? (
-          <Ionicons name={icon} size={22} color={tint} />
-        ) : (
-          <MaterialCommunityIcons name={icon.mci} size={22} color={tint} />
-        )}
-        <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
-          {label}
-        </Text>
-      </View>
+      <Icon name={icon} size={20} color={disabled ? colors.textFaint : colors.text} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    minWidth: 52,
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.xs,
-    borderRadius: radius.sm,
+    borderRadius: radius.round,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  grid: {
-    width: '32%',
-    paddingVertical: spacing.sm,
-  },
-  inner: {
-    alignItems: 'center',
-  },
-  active: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   pressed: {
-    backgroundColor: colors.primaryLight,
-  },
-  label: {
-    fontSize: 11,
-    marginTop: 2,
-    fontWeight: '500',
+    backgroundColor: colors.surfaceHover,
   },
 });

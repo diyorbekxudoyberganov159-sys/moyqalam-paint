@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "uz.diyorbek.moyqalam",
@@ -16,7 +16,7 @@
     "android": {
       "package": "uz.diyorbek.moyqalam",
       "adaptiveIcon": {
-        "backgroundColor": "#4F46E5",
+        "backgroundColor": "#0B0E14",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -34,7 +34,14 @@
           "savePhotosPermission": "Chizilgan rasmlarni galereyaga saqlash uchun ruxsat kerak.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "backgroundColor": "#0B0E14",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0E14"
+    }
   }
 }
