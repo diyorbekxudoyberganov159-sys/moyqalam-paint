@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Mo'yqalam",
+    "slug": "moyqalam-paint",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "uz.diyorbek.moyqalam",
+      "infoPlist": {
+        "NSPhotoLibraryAddUsageDescription": "Chizilgan rasmlarni galereyaga saqlash uchun ruxsat kerak."
+      }
+    },
+    "android": {
+      "package": "uz.diyorbek.moyqalam",
+      "adaptiveIcon": {
+        "backgroundColor": "#4F46E5",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Chizilgan rasmlarni galereyaga saqlash uchun ruxsat kerak.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}
