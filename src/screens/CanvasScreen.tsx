@@ -1,24 +1,24 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
+import { AppBar } from '../components/AppBar';
 import { AppModal } from '../components/AppModal';
+import { AppText } from '../components/AppText';
 import { ColorInputModal } from '../components/ColorInputModal';
+import { ColorPalette } from '../components/ColorPalette';
 import { DrawingCanvas } from '../components/DrawingCanvas';
+import { Icon } from '../components/Icon';
 import { NameInputModal } from '../components/NameInputModal';
+import { Ribbon } from '../components/Ribbon';
+import { SliderRow } from '../components/SliderRow';
+import { StatusBar } from '../components/StatusBar';
 import { useToast } from '../components/Toast';
-import { Toolbar } from '../components/Toolbar';
-import { colors, radius, spacing } from '../constants/theme';
+import { Workspace } from '../components/Workspace';
+import { MAX_OPACITY, MAX_WIDTH, MIN_OPACITY, MIN_WIDTH } from '../constants/brush';
+import { colors, gradient, radius, shadow, spacing } from '../constants/theme';
 import { getAllDrawings, getDrawing, getDrawingStrokes, saveDrawing } from '../data/drawingRepository';
 import { CAPTURE_RESULT } from '../data/imageFiles';
 import { useBrushSettings } from '../hooks/useBrushSettings';
@@ -29,44 +29,29 @@ import { ScreenProps } from '../navigation/types';
 
 type DialogType = 'none' | 'clear' | 'save' | 'color' | 'replace';
 
-/** Bosh ekran: kanvas + asboblar paneli. */
+/** Bosh ekran: yuqori panel + lenta + kanvas + pastki panel + status satri. */
 export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
   const history = useDrawingHistory();
   const brush = useBrushSettings();
   const showToast = useToast();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const isLandscape = width > height && width >= 600;
+  /** Keng ekran (planshet yoki yotiq telefon): o'lcham va ranglar lentaga ko'chadi. */
+  const isWide = width >= 760;
+  /** Past ekran (yotiq telefon): kanvasga ko'proq joy qolishi uchun panellar ixchamlashadi. */
+  const isShort = height < 520;
 
   const canvasRef = useRef<React.ComponentRef<typeof View>>(null);
   const [dialog, setDialog] = useState<DialogType>('none');
   const [existingNames, setExistingNames] = useState<string[]>([]);
   const [suggestedName, setSuggestedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDrawing, setPendingDrawing] = useState<{ name: string; strokes: Stroke[] } | null>(
-    null,
-  );
+  const [pendingDrawing, setPendingDrawing] = useState<{ name: string; strokes: Stroke[] } | null>(null);
 
+  const { settings } = brush;
+  const isEraser = settings.tool === 'eraser';
   const isEmpty = history.strokes.length === 0;
   const closeDialog = () => setDialog('none');
-
-  // Sarlavhaning o'ng tomonida "Galereya" tugmasi.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          onPress={() => navigation.navigate('Gallery')}
-          accessibilityRole="button"
-          accessibilityLabel="Mening rasmlarim"
-          style={styles.headerButton}
-          testID="open-gallery"
-        >
-          <Ionicons name="images-outline" size={22} color={colors.primary} />
-          <Text style={styles.headerButtonText}>Rasmlarim</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation]);
 
   // Galereyadan "Tahrirlash" bosilganda shu ekranga rasm ID si keladi.
   const openDrawingId = route.params?.openDrawingId;
@@ -111,17 +96,13 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
     setIsSaving(true);
     try {
       // Kanvasni PNG rasmga aylantirish.
-      const uri = await captureRef(canvasRef, {
-        format: 'png',
-        quality: 1,
-        result: CAPTURE_RESULT,
-      });
+      const uri = await captureRef(canvasRef, { format: 'png', quality: 1, result: CAPTURE_RESULT });
       await saveDrawing(name, uri, history.strokes);
       closeDialog();
       showToast(`“${name}” PNG sifatida saqlandi`, 'success');
     } catch (error) {
       console.warn(error);
-      showToast("Rasmni saqlashda xatolik yuz berdi", 'error');
+      showToast('Rasmni saqlashda xatolik yuz berdi', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -130,7 +111,7 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
   const handleClearConfirm = () => {
     history.clear();
     closeDialog();
-    showToast("Kanvas tozalandi. Qaytarish uchun “Orqaga” ni bosing");
+    showToast('Kanvas tozalandi — “Orqaga” bilan qaytarish mumkin');
   };
 
   const handleReplaceConfirm = () => {
@@ -145,61 +126,169 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
   if (!history.isLoaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
-  const toolbar = (
-    <Toolbar
-      settings={brush.settings}
-      activeWidth={brush.activeWidth}
-      canUndo={history.canUndo}
-      canRedo={history.canRedo}
-      isEmpty={isEmpty}
-      vertical={isLandscape}
-      onToolChange={brush.setTool}
-      onColorChange={brush.setColor}
-      onCustomColor={() => setDialog('color')}
-      onWidthChange={brush.setWidth}
-      onUndo={history.undo}
-      onRedo={history.redo}
-      onClear={() => setDialog('clear')}
-      onSave={handleSavePress}
+  /** Joriy rang (katta doira) — bosilsa "Ranglarni tahrirlash" ochiladi. */
+  const currentColor = (size: number) => (
+    <Pressable
+      onPress={() => setDialog('color')}
+      accessibilityRole="button"
+      accessibilityLabel="Joriy rang"
+      style={[styles.currentRing, { width: size + 8, height: size + 8 }]}
+      testID="current-color"
+    >
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: settings.color }} />
+    </Pressable>
+  );
+
+  const sizeSlider = (compact: boolean) => (
+    <SliderRow
+      compact={compact}
+      icon="circle-slice-8"
+      label={isEraser ? "O'chirg'ich" : "O'lcham"}
+      value={brush.activeWidth}
+      min={MIN_WIDTH}
+      max={MAX_WIDTH}
+      step={1}
+      format={(v) => `${v} px`}
+      onChange={brush.setWidth}
+      testID="size-slider"
+    />
+  );
+
+  const opacitySlider = (compact: boolean) => (
+    <SliderRow
+      compact={compact}
+      icon="opacity"
+      label="Shaffoflik"
+      value={settings.opacity}
+      min={MIN_OPACITY}
+      max={MAX_OPACITY}
+      step={0.05}
+      format={(v) => `${Math.round(v * 100)}%`}
+      onChange={brush.setOpacity}
+      disabled={isEraser}
+      testID="opacity-slider"
+    />
+  );
+
+  const palette = (layout: 'row' | 'grid') => (
+    <ColorPalette
+      layout={layout}
+      selected={settings.color}
+      dimmed={isEraser}
+      onSelect={brush.setColor}
+      onCustomPress={() => setDialog('color')}
     />
   );
 
   return (
-    <View style={[styles.container, isLandscape && styles.row]}>
-      <View style={styles.canvasWrapper}>
-        <DrawingCanvas
-          captureRef={canvasRef}
-          strokes={history.strokes}
-          brush={brush.settings}
-          onStrokeEnd={history.addStroke}
-        />
-        {isEmpty && (
-          // Ko'rsatma kanvasdan tashqarida joylashgan — PNG ga tushmaydi.
-          <View style={styles.hint} pointerEvents="none">
-            <Ionicons name="finger-print-outline" size={36} color={colors.disabled} />
-            <Text style={styles.hintText}>Barmog'ingiz bilan chizishni boshlang</Text>
-          </View>
-        )}
-      </View>
+    <View style={styles.container}>
+      <AppBar
+        compact={width < 430}
+        dense={isShort}
+        canUndo={history.canUndo}
+        canRedo={history.canRedo}
+        onUndo={history.undo}
+        onRedo={history.redo}
+        onGallery={() => navigation.navigate('Gallery')}
+        onSave={handleSavePress}
+      />
 
-      {isLandscape ? (
-        <ScrollView
-          style={[styles.sidePanel, { paddingRight: insets.right }]}
-          contentContainerStyle={{ paddingBottom: insets.bottom + spacing.md }}
+      <Ribbon
+        tool={settings.tool}
+        fillShapes={settings.fillShapes}
+        isEmpty={isEmpty}
+        onToolChange={brush.setTool}
+        onToggleFill={brush.toggleFill}
+        onClear={() => setDialog('clear')}
+        dense={isShort}
+        extraGroups={
+          isWide
+            ? [
+                {
+                  title: "O'lcham",
+                  node: (
+                    <View style={styles.ribbonSliders}>
+                      {sizeSlider(true)}
+                      {opacitySlider(true)}
+                    </View>
+                  ),
+                },
+                {
+                  title: 'Ranglar',
+                  node: (
+                    <View style={styles.ribbonColors}>
+                      {currentColor(30)}
+                      {palette('grid')}
+                    </View>
+                  ),
+                },
+              ]
+            : []
+        }
+      />
+
+      <Workspace>
+        <View
+          style={[
+            styles.canvasShadow,
+            isWide && !isShort && styles.canvasShadowWide,
+            isShort && styles.canvasShadowShort,
+          ]}
         >
-          {toolbar}
-        </ScrollView>
-      ) : (
-        <View style={{ paddingBottom: insets.bottom, backgroundColor: colors.surface }}>{toolbar}</View>
+          <View style={styles.canvasClip}>
+            <DrawingCanvas
+              captureRef={canvasRef}
+              strokes={history.strokes}
+              brush={settings}
+              onStrokeEnd={history.addStroke}
+            />
+            {isEmpty && (
+              // Ko'rsatma kanvas View'dan tashqarida — PNG ga tushmaydi.
+              <View style={styles.hint} pointerEvents="none">
+                <LinearGradient
+                  colors={gradient.accent}
+                  style={styles.hintIcon}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Icon name="gesture" size={28} color="#fff" />
+                </LinearGradient>
+                <AppText weight="bold" size={17} color="#1E2433">
+                  Chizishni boshlang
+                </AppText>
+                <AppText size={13} color="#7A8297">
+                  Asbobni tanlang va barmog'ingiz bilan chizing
+                </AppText>
+              </View>
+            )}
+          </View>
+        </View>
+      </Workspace>
+
+      {!isWide && (
+        <View style={styles.dock}>
+          <View style={styles.dockColors}>
+            {currentColor(34)}
+            <View style={styles.flex}>{palette('row')}</View>
+          </View>
+          {sizeSlider(false)}
+          {opacitySlider(false)}
+        </View>
       )}
+
+      <View style={{ paddingBottom: insets.bottom, backgroundColor: colors.bg }}>
+        <StatusBar tool={settings.tool} color={settings.color} objectCount={history.strokes.length} />
+      </View>
 
       <AppModal
         visible={dialog === 'clear'}
+        icon="delete-sweep-outline"
+        tone="danger"
         title="Kanvasni tozalash"
         message="Barcha chizilganlar o'chiriladi. Xohlasangiz, keyin “Orqaga” tugmasi bilan qaytarishingiz mumkin."
         onRequestClose={closeDialog}
@@ -211,6 +300,7 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
 
       <AppModal
         visible={dialog === 'replace'}
+        icon="file-replace-outline"
         title="Rasmni ochish"
         message={`Kanvasdagi joriy chizma “${pendingDrawing?.name ?? ''}” bilan almashtiriladi. Joriy chizmani “Orqaga” orqali qaytarish mumkin.`}
         onRequestClose={() => {
@@ -225,13 +315,14 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
               closeDialog();
             },
           },
-          { label: 'Ochish', onPress: handleReplaceConfirm, variant: 'primary' },
+          { label: 'Ochish', onPress: handleReplaceConfirm, variant: 'accent', testID: 'confirm-replace' },
         ]}
       />
 
       <NameInputModal
         visible={dialog === 'save'}
         title="PNG sifatida saqlash"
+        message="Rasm telefon xotirasiga saqlanadi va “Mening rasmlarim” bo'limida ko'rinadi."
         initialName={suggestedName}
         submitLabel="Saqlash"
         existingNames={existingNames}
@@ -242,7 +333,7 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
 
       <ColorInputModal
         visible={dialog === 'color'}
-        initialColor={brush.settings.color}
+        initialColor={settings.color}
         onCancel={closeDialog}
         onSubmit={(color) => {
           brush.setColor(color);
@@ -256,50 +347,79 @@ export function CanvasScreen({ navigation, route }: ScreenProps<'Canvas'>) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
   },
-  row: {
-    flexDirection: 'row',
+  flex: {
+    flex: 1,
   },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.bg,
   },
-  canvasWrapper: {
+  canvasShadow: {
     flex: 1,
-    margin: spacing.sm,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
+    margin: spacing.md,
+    borderRadius: radius.xs,
     backgroundColor: colors.canvas,
+    ...shadow.canvas,
+  },
+  canvasShadowWide: {
+    margin: spacing.xl,
+  },
+  canvasShadowShort: {
+    margin: spacing.sm,
+  },
+  canvasClip: {
+    flex: 1,
+    borderRadius: radius.xs,
+    overflow: 'hidden',
   },
   hint: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
-  hintText: {
-    color: colors.textMuted,
-    fontSize: 15,
+  hintIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
-  sidePanel: {
-    width: 320,
-    flexGrow: 0,
+  dock: {
     backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: 2,
   },
-  headerButton: {
+  dockColors: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  headerButtonText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: 15,
+  currentRing: {
+    borderRadius: radius.round,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
+  },
+  ribbonSliders: {
+    width: 250,
+    gap: 2,
+  },
+  ribbonColors: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
 });

@@ -1,111 +1,130 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { PALETTE } from '../constants/brush';
 import { colors, radius, spacing } from '../constants/theme';
+import { tapFeedback } from '../logic/haptics';
+import { Icon } from './Icon';
 
 interface Props {
   selected: string;
   /** O'chirg'ich tanlanganda palitra xira ko'rinadi. */
   dimmed?: boolean;
-  /** true — ranglar bir necha qatorga o'raladi (landshaft rejim). */
-  wrap?: boolean;
+  /** 'row' — bitta qator (telefon), 'grid' — 2 qatorli to'r (lenta ichida, Paint kabi). */
+  layout?: 'row' | 'grid';
   onSelect: (color: string) => void;
   onCustomPress: () => void;
 }
 
-const SWATCH = 30;
-
-/** Rang tanlash: tayyor ranglar + "boshqa rang" (HEX kiritish) tugmasi. */
-export function ColorPalette({ selected, dimmed, wrap, onSelect, onCustomPress }: Props) {
+/** Rang palitrasi + "boshqa rang" (HEX) tugmasi. */
+export function ColorPalette({ selected, dimmed, layout = 'row', onSelect, onCustomPress }: Props) {
+  const grid = layout === 'grid';
+  const size = grid ? 22 : 30;
   const isCustom = !PALETTE.includes(selected.toUpperCase());
 
-  const content = (
-    <View style={[styles.row, wrap && styles.wrap, dimmed && styles.dimmed]}>
-      {PALETTE.map((color) => {
-        const isSelected = !dimmed && color.toUpperCase() === selected.toUpperCase();
-        return (
-          <Pressable
-            key={color}
-            onPress={() => onSelect(color)}
-            accessibilityRole="button"
-            accessibilityLabel={`Rang ${color}`}
-            style={[styles.swatchOuter, isSelected && styles.swatchSelected]}
-          >
-            <View
-              style={[
-                styles.swatch,
-                { backgroundColor: color },
-                color === '#FFFFFF' && styles.whiteSwatch,
-              ]}
-            />
-          </Pressable>
-        );
-      })}
+  const swatches = PALETTE.map((color) => {
+    const isSelected = !dimmed && color.toUpperCase() === selected.toUpperCase();
+    return (
       <Pressable
-        onPress={onCustomPress}
+        key={color}
+        onPress={() => {
+          tapFeedback();
+          onSelect(color);
+        }}
         accessibilityRole="button"
-        accessibilityLabel="Boshqa rang"
-        style={[styles.swatchOuter, isCustom && !dimmed && styles.swatchSelected]}
+        accessibilityLabel={`Rang ${color}`}
+        style={[styles.ring, isSelected && styles.ringSelected, { borderRadius: radius.round }]}
       >
-        <View style={[styles.swatch, styles.customSwatch, isCustom && { backgroundColor: selected }]}>
-          {!isCustom && <Ionicons name="add" size={18} color={colors.textMuted} />}
-        </View>
+        <View
+          style={[
+            { width: size, height: size, borderRadius: radius.round, backgroundColor: color },
+            styles.swatchEdge,
+          ]}
+        />
       </Pressable>
-    </View>
+    );
+  });
+
+  const custom = (
+    <Pressable
+      key="custom"
+      onPress={onCustomPress}
+      accessibilityRole="button"
+      accessibilityLabel="Boshqa rang"
+      style={[styles.ring, isCustom && !dimmed && styles.ringSelected]}
+    >
+      <View
+        style={[
+          styles.custom,
+          { width: size, height: size },
+          isCustom && { backgroundColor: selected, borderStyle: 'solid' },
+        ]}
+      >
+        {!isCustom && <Icon name="plus" size={grid ? 14 : 18} color={colors.textMuted} />}
+      </View>
+    </Pressable>
   );
 
-  if (wrap) {
-    return content;
+  if (grid) {
+    const half = Math.ceil(PALETTE.length / 2);
+    return (
+      <View style={[styles.grid, dimmed && styles.dimmed]}>
+        <View style={styles.gridRow}>{swatches.slice(0, half)}</View>
+        <View style={styles.gridRow}>
+          {swatches.slice(half)}
+          {custom}
+        </View>
+      </View>
+    );
   }
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-      {content}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      style={dimmed && styles.dimmed}
+    >
+      {swatches}
+      {custom}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    paddingHorizontal: spacing.sm,
-  },
   row: {
-    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: spacing.xs,
   },
-  wrap: {
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
+  grid: {
+    gap: 0,
+  },
+  gridRow: {
+    flexDirection: 'row',
   },
   dimmed: {
     opacity: 0.35,
   },
-  swatchOuter: {
-    padding: 3,
-    margin: 2,
+  ring: {
+    padding: 2,
+    margin: 1,
     borderRadius: radius.round,
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  swatchSelected: {
-    borderColor: colors.primary,
+  ringSelected: {
+    borderColor: colors.accent,
   },
-  swatch: {
-    width: SWATCH,
-    height: SWATCH,
+  swatchEdge: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  custom: {
     borderRadius: radius.round,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.textFaint,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  whiteSwatch: {
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  customSwatch: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.textMuted,
-    backgroundColor: colors.surface,
   },
 });
