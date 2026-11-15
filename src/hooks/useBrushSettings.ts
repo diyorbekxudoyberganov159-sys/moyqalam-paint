@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS } from '../constants/brush';
 import { loadSettings, saveSettings } from '../data/settingsStorage';
 import { BrushSettings, Tool } from '../models/drawing';
 
-/** Qalam sozlamalari: tanlangan asbob, rang va qalinlik (lokal saqlanadi). */
+/** Asbob sozlamalari: tanlangan asbob, rang, qalinlik, shaffoflik (lokal saqlanadi). */
 export function useBrushSettings() {
   const [settings, setSettings] = useState<BrushSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -24,20 +24,24 @@ export function useBrushSettings() {
 
   const setTool = useCallback((tool: Tool) => setSettings((s) => ({ ...s, tool })), []);
 
-  // Rang tanlansa avtomatik qalamga o'tamiz — foydalanuvchi uchun tabiiy.
+  // O'chirg'ich tanlangan paytda rang bosilsa — qalamga qaytamiz (tabiiy xatti-harakat).
   const setColor = useCallback(
-    (color: string) => setSettings((s) => ({ ...s, color, tool: 'pen' })),
+    (color: string) => setSettings((s) => ({ ...s, color, tool: s.tool === 'eraser' ? 'pen' : s.tool })),
     [],
   );
 
-  /** Qalinlik hozirgi asbobga qo'llanadi (qalam va o'chirg'ichniki alohida). */
+  /** Qalinlik hozirgi asbobga qo'llanadi (o'chirg'ichniki alohida saqlanadi). */
   const setWidth = useCallback(
     (width: number) =>
-      setSettings((s) => (s.tool === 'pen' ? { ...s, penWidth: width } : { ...s, eraserWidth: width })),
+      setSettings((s) => (s.tool === 'eraser' ? { ...s, eraserWidth: width } : { ...s, penWidth: width })),
     [],
   );
 
-  const activeWidth = settings.tool === 'pen' ? settings.penWidth : settings.eraserWidth;
+  const setOpacity = useCallback((opacity: number) => setSettings((s) => ({ ...s, opacity })), []);
 
-  return { settings, activeWidth, setTool, setColor, setWidth };
+  const toggleFill = useCallback(() => setSettings((s) => ({ ...s, fillShapes: !s.fillShapes })), []);
+
+  const activeWidth = settings.tool === 'eraser' ? settings.eraserWidth : settings.penWidth;
+
+  return { settings, activeWidth, setTool, setColor, setWidth, setOpacity, toggleFill };
 }

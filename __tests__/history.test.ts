@@ -7,6 +7,8 @@ const makeStroke = (id: string): Stroke => ({
   tool: 'pen',
   color: '#000000',
   width: 4,
+  opacity: 1,
+  fill: false,
   points: [
     { x: 0, y: 0 },
     { x: 10, y: 10 },

@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { DEFAULT_SETTINGS, MAX_WIDTH, MIN_WIDTH } from '../constants/brush';
+import { DEFAULT_SETTINGS, MAX_OPACITY, MAX_WIDTH, MIN_OPACITY, MIN_WIDTH } from '../constants/brush';
 import { clampWidth, isValidHexColor } from '../logic/validation';
-import { BrushSettings } from '../models/drawing';
+import { BrushSettings, Tool } from '../models/drawing';
+
+const TOOLS: Tool[] = ['pen', 'marker', 'eraser', 'line', 'rect', 'ellipse'];
 import { STORAGE_KEYS } from './storageKeys';
 
 /**
@@ -17,7 +19,7 @@ export async function loadSettings(): Promise<BrushSettings> {
     }
     const parsed = JSON.parse(raw) as Partial<BrushSettings>;
     return {
-      tool: parsed.tool === 'eraser' ? 'eraser' : 'pen',
+      tool: parsed.tool && TOOLS.includes(parsed.tool) ? parsed.tool : DEFAULT_SETTINGS.tool,
       color:
         typeof parsed.color === 'string' && isValidHexColor(parsed.color)
           ? parsed.color
@@ -28,6 +30,11 @@ export async function loadSettings(): Promise<BrushSettings> {
         MIN_WIDTH,
         MAX_WIDTH,
       ),
+      opacity:
+        typeof parsed.opacity === 'number' && Number.isFinite(parsed.opacity)
+          ? Math.min(MAX_OPACITY, Math.max(MIN_OPACITY, parsed.opacity))
+          : DEFAULT_SETTINGS.opacity,
+      fillShapes: parsed.fillShapes === true,
     };
   } catch (error) {
     console.warn('Sozlamalarni o`qib bo`lmadi:', error);

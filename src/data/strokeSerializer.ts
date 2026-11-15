@@ -9,6 +9,8 @@ export function serializeStrokes(strokes: Stroke[]): string {
   return JSON.stringify(strokes);
 }
 
+const TOOLS = ['pen', 'marker', 'eraser', 'line', 'rect', 'ellipse'];
+
 function isStroke(value: unknown): value is Stroke {
   if (typeof value !== 'object' || value === null) {
     return false;
@@ -16,7 +18,8 @@ function isStroke(value: unknown): value is Stroke {
   const s = value as Record<string, unknown>;
   return (
     typeof s.id === 'string' &&
-    (s.tool === 'pen' || s.tool === 'eraser') &&
+    typeof s.tool === 'string' &&
+    TOOLS.includes(s.tool) &&
     typeof s.color === 'string' &&
     typeof s.width === 'number' &&
     Array.isArray(s.points) &&
@@ -36,7 +39,15 @@ export function deserializeStrokes(raw: string | null): Stroke[] {
   }
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isStroke) : [];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    // Eski versiyada saqlangan yozuvlarda opacity/fill bo'lmasligi mumkin — standart qiymat qo'yamiz.
+    return parsed.filter(isStroke).map((s) => ({
+      ...s,
+      opacity: typeof s.opacity === 'number' ? s.opacity : 1,
+      fill: s.fill === true,
+    }));
   } catch {
     return [];
   }

@@ -8,12 +8,14 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Ellipse, Line, Path, Rect } from 'react-native-svg';
 
 import { colors } from '../constants/theme';
+import { cursorStore } from '../logic/cursorStore';
 import { createId } from '../logic/id';
 import { pointsToPath, shouldAddPoint } from '../logic/path';
-import { BrushSettings, Point, Stroke } from '../models/drawing';
+import { effectiveOpacity, ellipseFromPoints, isShapeBigEnough, rectFromPoints } from '../logic/shapes';
+import { BrushSettings, isShapeTool, Point, Stroke } from '../models/drawing';
 
 interface Props {
   strokes: Stroke[];
@@ -23,34 +25,45 @@ interface Props {
   captureRef?: React.Ref<React.ComponentRef<typeof View>>;
 }
 
-/** O'chirg'ich chizig'i fon rangida chiziladi. */
-const strokeColor = (stroke: Pick<Stroke, 'tool' | 'color'>) =>
+/** O'chirg'ich fon rangida chiziladi. */
+const paintColor = (stroke: Pick<Stroke, 'tool' | 'color'>) =>
   stroke.tool === 'eraser' ? colors.canvas : stroke.color;
 
-/** Bitta chiziqni SVG Path sifatida chizadi. */
-const StrokePath = memo(function StrokePath({ stroke }: { stroke: Stroke }) {
-  const d = useMemo(() => pointsToPath(stroke.points), [stroke.points]);
-  return (
-    <Path
-      d={d}
-      stroke={strokeColor(stroke)}
-      strokeWidth={stroke.width}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-    />
-  );
+/** Bitta obyektni (chiziq yoki shakl) SVG elementiga aylantiradi. */
+const StrokeView = memo(function StrokeView({ stroke }: { stroke: Stroke }) {
+  const color = paintColor(stroke);
+  const opacity = effectiveOpacity(stroke);
+  const common = {
+    stroke: color,
+    strokeWidth: stroke.width,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    opacity,
+  };
+  const [a, b = a] = stroke.points;
+
+  switch (stroke.tool) {
+    case 'line':
+      return <Line x1={a.x} y1={a.y} x2={b.x} y2={b.y} {...common} />;
+    case 'rect': {
+      const r = rectFromPoints(a, b);
+      return <Rect {...r} rx={2} {...common} fill={stroke.fill ? color : 'none'} />;
+    }
+    case 'ellipse': {
+      const e = ellipseFromPoints(a, b);
+      return <Ellipse {...e} {...common} fill={stroke.fill ? color : 'none'} />;
+    }
+    default:
+      return <Path d={pointsToPath(stroke.points)} {...common} fill="none" />;
+  }
 });
 
-/**
- * Tugallangan chiziqlar qatlami. `memo` tufayli yangi chiziq chizilayotganda
- * eski chiziqlar qayta hisoblanmaydi — ilova tez ishlaydi.
- */
+/** Tugallangan obyektlar qatlami — `memo` tufayli yangi chiziq chizilganda qayta hisoblanmaydi. */
 const StrokesLayer = memo(function StrokesLayer({ strokes }: { strokes: Stroke[] }) {
   return (
     <>
       {strokes.map((stroke) => (
-        <StrokePath key={stroke.id} stroke={stroke} />
+        <StrokeView key={stroke.id} stroke={stroke} />
       ))}
     </>
   );
@@ -59,12 +72,13 @@ const StrokesLayer = memo(function StrokesLayer({ strokes }: { strokes: Stroke[]
 /**
  * Chizish maydoni. Barmoq harakati PanResponder orqali kuzatiladi:
  *  Grant (barmoq tegdi) → Move (siljidi) → Release (ko'tarildi).
- * Chizilayotgan chiziq `livePoints` da turadi, barmoq ko'tarilganda
- * tayyor Stroke `onStrokeEnd` orqali tarixga yuboriladi.
+ *  - Erkin asboblarda (qalam, marker, o'chirg'ich) har siljishda nuqta qo'shiladi.
+ *  - Shakllarda faqat [boshlang'ich, joriy] nuqta saqlanadi — shakl "cho'zilib" ko'rinadi.
+ * Barmoq ko'tarilganda tayyor obyekt `onStrokeEnd` orqali tarixga yuboriladi.
  */
 export function DrawingCanvas({ strokes, brush, onStrokeEnd, captureRef }: Props) {
-  const [livePoints, setLivePoints] = useState<Point[] | null>(null);
-  const pointsRef = useRef<Point[]>([]);
+  const [live, setLive] = useState<Stroke | null>(null);
+  const liveRef = useRef<Stroke | null>(null);
   const sizeRef = useRef({ width: 0, height: 0 });
 
   // PanResponder bir marta yaratiladi, shuning uchun eng so'nggi qiymatlarni ref orqali o'qiymiz.
@@ -84,20 +98,22 @@ export function DrawingCanvas({ strokes, brush, onStrokeEnd, captureRef }: Props
       };
     };
 
+    const update = (stroke: Stroke | null) => {
+      liveRef.current = stroke;
+      setLive(stroke);
+    };
+
     const finish = () => {
-      const points = pointsRef.current;
-      if (points.length > 0) {
-        const { tool, color, penWidth, eraserWidth } = brushRef.current;
-        onStrokeEndRef.current({
-          id: createId(),
-          tool,
-          color,
-          width: tool === 'pen' ? penWidth : eraserWidth,
-          points,
-        });
+      const stroke = liveRef.current;
+      cursorStore.setPoint(null);
+      update(null);
+      if (!stroke) {
+        return;
       }
-      pointsRef.current = [];
-      setLivePoints(null);
+      if (isShapeTool(stroke.tool) && !isShapeBigEnough(stroke.points[0], stroke.points[1])) {
+        return; // tasodifiy teginish — shakl qo'shilmaydi
+      }
+      onStrokeEndRef.current(stroke);
     };
 
     return PanResponder.create({
@@ -107,15 +123,29 @@ export function DrawingCanvas({ strokes, brush, onStrokeEnd, captureRef }: Props
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (event) => {
         const point = readPoint(event);
-        pointsRef.current = [point];
-        setLivePoints([point]);
+        const b = brushRef.current;
+        cursorStore.setPoint(point);
+        update({
+          id: createId(),
+          tool: b.tool,
+          color: b.color,
+          width: b.tool === 'eraser' ? b.eraserWidth : b.penWidth,
+          opacity: b.opacity,
+          fill: b.fillShapes,
+          points: isShapeTool(b.tool) ? [point, point] : [point],
+        });
       },
       onPanResponderMove: (event) => {
+        const current = liveRef.current;
+        if (!current) {
+          return;
+        }
         const point = readPoint(event);
-        const points = pointsRef.current;
-        if (shouldAddPoint(points[points.length - 1], point)) {
-          pointsRef.current = [...points, point];
-          setLivePoints(pointsRef.current);
+        cursorStore.setPoint(point);
+        if (isShapeTool(current.tool)) {
+          update({ ...current, points: [current.points[0], point] });
+        } else if (shouldAddPoint(current.points[current.points.length - 1], point)) {
+          update({ ...current, points: [...current.points, point] });
         }
       },
       onPanResponderRelease: finish,
@@ -126,15 +156,14 @@ export function DrawingCanvas({ strokes, brush, onStrokeEnd, captureRef }: Props
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     sizeRef.current = { width, height };
+    cursorStore.setSize(width, height);
   };
-
-  const liveWidth = brush.tool === 'pen' ? brush.penWidth : brush.eraserWidth;
 
   return (
     <View
       ref={captureRef}
       collapsable={false}
-      style={[styles.canvas, webNoScroll]}
+      style={[styles.canvas, webPointer]}
       onLayout={handleLayout}
       {...responder.panHandlers}
       testID="drawing-canvas"
@@ -142,23 +171,14 @@ export function DrawingCanvas({ strokes, brush, onStrokeEnd, captureRef }: Props
       {/* pointerEvents="none" — teginish koordinatalari doim kanvasga nisbatan hisoblanadi */}
       <Svg width="100%" height="100%" pointerEvents="none">
         <StrokesLayer strokes={strokes} />
-        {livePoints && (
-          <Path
-            d={pointsToPath(livePoints)}
-            stroke={strokeColor(brush)}
-            strokeWidth={liveWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        )}
+        {live && <StrokeView stroke={live} />}
       </Svg>
     </View>
   );
 }
 
-/** Webda sichqoncha/barmoq bilan chizganda sahifa aylanib ketmasligi uchun. */
-const webNoScroll = Platform.select<ViewStyle>({
+/** Webda sichqoncha bilan chizganda sahifa aylanib ketmasligi uchun. */
+const webPointer = Platform.select<ViewStyle>({
   web: { touchAction: 'none', cursor: 'crosshair', userSelect: 'none' } as unknown as ViewStyle,
   default: {},
 });

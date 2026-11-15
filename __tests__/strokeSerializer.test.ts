@@ -6,6 +6,8 @@ const stroke: Stroke = {
   tool: 'pen',
   color: '#DC2626',
   width: 6,
+  opacity: 1,
+  fill: false,
   points: [{ x: 1, y: 2 }],
 };
 
@@ -17,6 +19,10 @@ describe('strokeSerializer', () => {
     expect(deserializeStrokes(null)).toEqual([]);
     expect(deserializeStrokes('{buzilgan')).toEqual([]);
     expect(deserializeStrokes('"satr"')).toEqual([]);
+  });
+  it('eski formatdagi yozuvga opacity va fill qo`shiladi', () => {
+    const { opacity, fill, ...old } = stroke;
+    expect(deserializeStrokes(JSON.stringify([old]))).toEqual([stroke]);
   });
   it('noto`g`ri yozuvlar tashlab yuboriladi', () => {
     const raw = JSON.stringify([stroke, { id: 2 }, { ...stroke, tool: 'brush' }]);
