@@ -61,12 +61,12 @@ export function AppBar({ canUndo, canRedo, compact, dense, onUndo, onRedo, onGal
           testID="open-gallery"
         />
         <GradientButton
-          label={compact ? '' : 'Saqlash'}
+          label="Saqlash"
+          iconOnly={compact}
           icon="tray-arrow-down"
           onPress={onSave}
           compact
           testID="save"
-          style={compact ? styles.saveIcon : undefined}
         />
       </View>
     </View>
@@ -108,8 +108,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  saveIcon: {
-    width: 40,
   },
 });

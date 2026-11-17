@@ -12,6 +12,8 @@ interface Props {
   onPress: () => void;
   variant?: 'accent' | 'danger' | 'ghost';
   compact?: boolean;
+  /** Faqat ikonka (tor ekranda) — yozuv yashiriladi, lekin ekran o'quvchilar uchun saqlanadi. */
+  iconOnly?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
   testID?: string;
@@ -24,18 +26,25 @@ export function GradientButton({
   onPress,
   variant = 'accent',
   compact,
+  iconOnly,
   disabled,
   style,
   testID,
 }: Props) {
   const content = (
-    <View style={[styles.inner, compact && styles.compact]}>
+    <View style={[styles.inner, compact && styles.compact, iconOnly && styles.iconOnly]}>
       {icon && (
         <Icon name={icon} size={compact ? 18 : 20} color={variant === 'ghost' ? colors.text : '#fff'} />
       )}
-      <AppText weight="semibold" size={compact ? 14 : 15} color={variant === 'ghost' ? colors.text : '#fff'}>
-        {label}
-      </AppText>
+      {!iconOnly && (
+        <AppText
+          weight="semibold"
+          size={compact ? 14 : 15}
+          color={variant === 'ghost' ? colors.text : '#fff'}
+        >
+          {label}
+        </AppText>
+      )}
     </View>
   );
 
@@ -89,6 +98,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
+  },
+  iconOnly: {
+    width: 40,
+    height: 40,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   compact: {
     paddingVertical: spacing.sm,
